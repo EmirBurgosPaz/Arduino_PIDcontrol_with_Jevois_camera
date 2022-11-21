@@ -1,0 +1,26 @@
+Andromie KEYWORD1
+
+iniciar	KEYWORD2
+adelante	KEYWORD2
+atras	KEYWORD2
+derecha	KEYWORD2
+izquierda	KEYWORD2
+giroderecha	KEYWORD2
+giroizquierda	KEYWORD2
+detenido	KEYWORD2
+
+lecturaPiso	KEYWORD2
+lecturaContacto	KEYWORD2
+lecturaSensorDer	KEYWORD2
+
+LED  KEYWORD2
+LED1 KEYWORD2
+LED2 KEYWORD2
+LED3 KEYWORD2
+LED4 KEYWORD2
+
+LEDTricolor KEYWORD2
+
+frenteEsObstaculo	KEYWORD2
+derechaEsObstaculo	KEYWORD2
+izquierdaEsObstaculo	KEYWORD2
