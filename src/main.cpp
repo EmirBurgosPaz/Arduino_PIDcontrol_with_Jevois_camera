@@ -1,124 +1,108 @@
-#include <MakerMini.h>
-#include <math.h>
 #include <Arduino.h>
- // Pin for LED, blinks as we receive serial commands:
- #define LED_BUILTIN 13
- // Serial port to use: on chips with USB (e.g., 32u4), that usually is Serial1.
- // On chips without USB, use Serial:
 
- // Buffer for received serial port bytes:
- #define INLEN 128
- char instr[INLEN + 1];
- double posx = 0;
- double posy = 0;
-  double posz = 0;
- double frames = 70;
-double kp = 900;
-double ki = 300;
-double kd = 10;
+// Rotary Encoder Inputs
+#define inputCLK 4
+#define inputDT 5
+
+// LED Outputs
+#define ledCW 8
+#define ledCCW 9
+
+int counter = 0;
+int currentStateCLK;
+int previousStateCLK;
+
+double kp = 1.5;
+double ki = 0;
+double kd = 0;
 unsigned long currentTime, previousTime;
 double elapsedTime;
 double error;
 double lastError;
-double setPoint, output, input;
+double setPoint, output;
 double cumError, rateError;
-double data;
 
-Andromie Mini;
+
+String encdir = "";
 
 double computePID(double inp,double minLimit, double maxLimit);
 
- void setup()
- {
-   
-   Serial.begin(115200);
-   Serial.setTimeout(500);
-   
-   pinMode(LED_BUILTIN, OUTPUT);
-   digitalWrite(LED_BUILTIN, HIGH);
-   Mini.iniciar();
-   
-   setPoint = 320; 
-   Serial.println("Conexion");
+void setup() {
+
+ // Set encoder pins as inputs
+ pinMode (inputCLK,INPUT);
+ pinMode (inputDT,INPUT);
+
+ // Set LED pins as outputs
+ pinMode (ledCW,OUTPUT);
+ pinMode (ledCCW,OUTPUT);
+
+ // Setup Serial Monitor
+ Serial.begin (9600);
+
+ // Read the initial state of inputCLK
+ // Assign to previousStateCLK variable
+ previousStateCLK = digitalRead(inputCLK);
+
+setPoint = 0;
+}
+
+void loop() {
+
+// Read the current state of inputCLK
+ currentStateCLK = digitalRead(inputCLK);
+
+ // If the previous and the current state of the inputCLK are different then a pulse has occured
+ if (currentStateCLK != previousStateCLK){
+
+   // If the inputDT state is different than the inputCLK state then
+   // the encoder is rotating counterclockwise
+   if (digitalRead(inputDT) != currentStateCLK) {
+     counter --;
+     encdir ="CCW";
+     digitalWrite(ledCW, LOW);
+     digitalWrite(ledCCW, HIGH);
+
+   } else {
+     // Encoder is rotating clockwise
+     counter ++;
+     encdir ="CW";
+     digitalWrite(ledCW, HIGH);
+     digitalWrite(ledCCW, LOW);
+
+   }
+   output = computePID(counter, 0 ,100);
+   Serial.print("PID value ");
+   Serial.print(output);
+   Serial.print(" -- Value: ");
+   Serial.println(counter);
  }
-  
- void loop()
- {
-  // Read a line of data from JeVois:
-   byte len = Serial.readBytesUntil('\n', instr, INLEN);
-   instr[len] = 0;
-   char * tok = strtok(instr, " \r\n");
-   int state = 0;
-   while (tok)
-   {
-     switch (state)
-     {
-       case 0:
-         if (strcmp(tok, "T1") == 0) state = 1;
-         else if (strcmp(tok, "T2") == 0) state = 2;
-         else if (strcmp(tok, "T3") == 0) state = 3;
-         else if (strcmp(tok, "T4") == 0) state = 4;
-         else state = 1000;
-         break;
-         
-       case 1: posx = atoi(tok); 
-       Serial.print(posx);
-       Serial.print(", ");
-       break;
-       
-       case 2: posy = atoi(tok); 
-       Serial.print(posy);
-       Serial.println(", ");
-       break;
-
-       case 3: 
-       Serial.println(" ");
-       break;
-
-       case 4: 
-       Serial.println("0,0,0,0");
-       break;
-       default: break; // Skip any additional tokens
-     }
-     tok = strtok(0, " \r\n");
-   }         
-    
-
+ // Update previousStateCLK with the current state
+ previousStateCLK = currentStateCLK;
 }
 
 double computePID(double inp,double minLimit, double maxLimit){     
         currentTime = millis();
         elapsedTime = (double)(currentTime - previousTime); 
-        double sampletime = 10;
-        double sampletimeInSec = sampletime / 1000;     //compute time elapsed from previous computation
+        double sampletime = 100;    //compute time elapsed from previous computation
         if (elapsedTime >= sampletime){
         error = setPoint - inp;                                // determine error
-        cumError = error*sampletimeInSec +  cumError;                // compute integral
-        rateError = (error - lastError)/sampletimeInSec ;   // compute derivative
+        cumError += error;                // compute integral
+        rateError = (error - lastError) ;   // compute derivative
  
-        double out = abs(kp*error + ki*cumError + kd*rateError);                //PID output               
+        double out = kp*error + ki*cumError + kd*rateError;                //PID output               
+ 
         lastError = error;                                //remember current error
         previousTime = currentTime;                        //remember current time
-        out = map(out,0,262144, minLimit ,maxLimit);
-        if (out  > maxLimit) out = maxLimit;
-        else if (out < minLimit) out = minLimit;
-        else out  = out;
-        Serial.print(inp);
-        Serial.print(", ");
-        Serial.print(error);
-        Serial.print(", ");
-        Serial.println(out);
-        if (error  <  0)  {        
-        Mini.motor(1,0,out);
-        Mini.motor(2,1,out);
-        //Serial.println(out); 
-        }else {       
-        Mini.motor(1,1,out);
-        Mini.motor(2,0,out);
-        //Serial.println(out); 
-        }
-         
         
-        return out      ;     //have function return the PID output
+        if (error  <  0)   out = 0 - out;
+        else out = out;
+
+        if (out > maxLimit) out = maxLimit;
+        else if (out < minLimit) out = minLimit;
+        else out = out;
+        
+        return out;        //have function return the PID output
         }    
 }
+
