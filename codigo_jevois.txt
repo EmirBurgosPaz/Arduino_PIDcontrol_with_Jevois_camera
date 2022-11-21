@@ -1,0 +1,101 @@
+import libjevois as jevois
+import cv2
+import numpy as np
+
+## Detecta las coordenadas de lso contornso de un objeto de cierto color
+#
+# Add some description of your module here.
+#
+# @author Emir Eduardo Burgos Paz
+# 
+# @videomapping YUYV 640 480 120 YUYV 640 480 30 Andromie Countour_detector
+# @email emirebp@gmail.com
+# @address 123 first street, Los Angeles CA 90012, USA
+# @copyright Copyright (C) 2018 by Emir Eduardo Burgos Paz
+# @mainurl Andormie.com
+# @supporturl Andormie.com
+# @otherurl Andormie.com
+# @license .
+# @distribution Unrestricted
+# @restrictions None
+# @ingroup modules
+class Countour_detector:
+    # ###################################################################################################
+    ## Constructor
+    def __init__(self):
+        # Instantiate a JeVois Timer to measure our processing framerate:
+        self.timer = jevois.Timer("processing timer", 100, jevois.LOG_INFO)
+        
+    # ###################################################################################################
+    ## Process function with USB output
+    def process(self, inframe, outframe):
+        # Get the next camera image (may block until it is captured) and here convert it to OpenCV BGR. If you need a
+        # grayscale image, just use getCvGRAY() instead of getCvBGR(). Also supported are getCvRGB() and getCvRGBA():
+        inimg = inframe.getCvBGR()
+        
+        # Start measuring image processing time (NOTE: does not account for input conversion time):
+        self.timer.start()
+    
+        # Detect edges using the Laplacian algorithm from OpenCV:
+        #
+        # Replace the line below by your own code! See for example
+        # - http://docs.opencv.org/trunk/d4/d13/tutorial_py_filtering.html
+        # - http://docs.opencv.org/trunk/d9/d61/tutorial_py_morphological_ops.html
+        # - http://docs.opencv.org/trunk/d5/d0f/tutorial_py_gradients.html
+        # - http://docs.opencv.org/trunk/d7/d4d/tutorial_py_thresholding.html
+        #
+        # and so on. When they do "img = cv2.imread('name.jpg', 0)" in these tutorials, the last 0 means they want a
+        # gray image, so you should use getCvGRAY() above in these cases. When they do not specify a final 0 in imread()
+        # then usually they assume color and you should use getCvBGR() above.
+        #
+        # The simplest you could try is:
+        #    outimg = inimg
+        # which will make a simple copy of the input image to output.
+        detect = False
+        frame = inimg
+        outimg = frame
+
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        lower_mask = np.array([44, 171, 0])
+        upper_mask = np.array([100, 255, 255])
+
+        mask = cv2.inRange(hsv, lower_mask, upper_mask)
+
+        cnts,_ = cv2.findContours(mask.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        #jevois.sendSerial(str(len(cnts)))
+        if len(cnts) > 15 :
+            for c in cnts:
+                    area = cv2.contourArea(c)
+                    #jevois.sendSerial(str(area))
+                    if area >900:
+                            
+                            approx = cv2.approxPolyDP(c, 0.1 * cv2.arcLength(c, True), True)
+                            n = approx.ravel() 
+                            x = n[0]
+                            y = n[1]
+                            cv2.circle(frame, (x,y), 7, (255,255,255), -1)
+                            #cv2.drawContours(frame, c, -1, (0,255,0), 3)
+                            string = str(x) + " " + str(y) 
+                            cv2.putText(frame, string, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+                            jevois.sendSerial("T1 " + str(x))
+                            jevois.sendSerial("T2 " + str(y))
+                            jevois.sendSerial("T3 " )
+                             
+                    
+        else:
+            jevois.sendSerial("T4 ")
+            
+        #jevois.sendSerial(str(len(cnts)))
+        # Write a title:
+        cv2.putText(outimg, "Andromie CountoursDetector", (3, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
+        #jevois.sendSerial(str(len(cnts)))
+        # Write frames/s info from our timer into the edge map (NOTE: does not account for output conversion time):
+        fps = self.timer.stop()
+        height = outimg.shape[0]
+        width = outimg.shape[1]
+        cv2.putText(outimg, fps, (3, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
+        
+        # Convert our output image to video output format and send to host over USB:
+        outframe.sendCv(outimg)
+        
